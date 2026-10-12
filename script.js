@@ -46,18 +46,22 @@ function updateModeBanner(mode) {
 }
 
 async function sendCommand(payload) {
-    const jsonString = JSON.stringify(payload);
+  const jsonString = JSON.stringify(payload);
 
     if (currentMode === 'BLE' && bleCharacteristic) {
         try {
             const encoder = new TextEncoder();
-            await bleCharacteristic.writeValue(encoder.encode(jsonString));
-            console.log("Gửi qua Bluetooth:", jsonString);
+            const data = encoder.encode(jsonString);
+            
+            // Gửi gói tin kèm phản hồi từ phần cứng
+            await bleCharacteristic.writeValueWithResponse(data);
+            console.log("Đã gửi qua Bluetooth thành công:", jsonString);
+            return;
         } catch (error) {
-            alert("Lỗi truyền tin Bluetooth!");
+            alert("Lỗi truyền tin Bluetooth! Hãy thử kết nối lại.");
             console.error(error);
         }
-    } 
+    }
     else if (currentMode === 'WIFI') {
         const espIP = "192.168.1.76"; // IP nội bộ của ESP32
         try {
@@ -84,24 +88,23 @@ function connectWiFi() {
 async function connectBluetooth() {
     try {
         const device = await navigator.bluetooth.requestDevice({
-            filters: [{ name: 'Thong_Farm_ESP32' }], // Khớp đúng tên phát sóng của ESP32
+            filters: [{ name: 'Thong_Farm_ESP32' }],
             optionalServices: ['4fafc201-1fb5-459e-8fcc-c5c9c331914b']
         });
         
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService('4fafc201-1fb5-459e-8fcc-c5c9c331914b');
-        
-        // Sửa lại đúng đuôi ...26a9 cho khớp với code C++ trên ESP32
         bleCharacteristic = await service.getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26a9');
         
+        // Bắt buộc phải có dòng này để chuyển mode sang BLE
         updateModeBanner('BLE');
+        
         document.getElementById('connection-detail-box').innerText = "Trạng thái: Đã kết nối Bluetooth thành công!";
     } catch (error) {
         console.error(error);
         alert("Kết nối Bluetooth thất bại hoặc bị hủy!");
     }
 }
-
 function connectServer() {
     updateModeBanner('SERVER');
     document.getElementById('connection-detail-box').innerText = "Trạng thái: Đã chuyển về Server Cloud (MQTT)";
