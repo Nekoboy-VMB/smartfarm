@@ -229,60 +229,101 @@ function handleToggleChange(valveId) {
 let scheduleCount = 0;
 const daysOfWeek = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
-function addSchedule() {
-    if (scheduleCount >= 6) {
-        alert("Chỉ được phép thêm tối đa 6 lịch trình!");
-        return;
-    }
-    scheduleCount++;
-    const id = scheduleCount; // ID cố định cho luồng này
+// Khởi tạo sẵn 6 lịch trình khi tải trang
+function initSchedules() {
     const container = document.getElementById('schedules-container');
-    
-    const scheduleHTML = `
-        <div class="schedule-item" id="sch-${id}">
-            <h4>Lịch trình #${id} (Luồng độc lập)</h4>
-            <div class="form-group">
-                <label>Chọn van áp dụng:</label>
-                <div class="valve-selector-grid">
-                    ${[1,2,3,4,5,6].map(v => `<div class="valve-select-btn" data-val="${v}" onclick="toggleSelect(this)">V${v}</div>`).join('')}
-                </div>
-            </div>
-            <div class="form-group timer-inputs">
-                <label>Thời gian tưới:</label>
-                <input type="number" class="sch-h" value="0" min="0"> giờ 
-                <input type="number" class="sch-m" value="0" min="0" max="59"> phút 
-                <input type="number" class="sch-s" value="5" min="0" max="59"> giây
-            </div>
-            <div class="form-group">
-                <label>Thời gian nghỉ giữa các lần (phút):</label>
-                <input type="number" class="sch-rest" value="0" min="0">
-            </div>
-            <div class="form-group">
-                <label>Số lần lặp lại:</label>
-                <input type="number" class="sch-repeat" value="1" min="1">
-            </div>
-            <div class="form-group">
-                <label>Thời gian bắt đầu trong ngày:</label>
-                <input type="time" class="sch-time" value="06:00">
-            </div>
-            <div class="form-group">
-                <label>Tùy chọn lặp lại theo thứ:</label>
-                <div class="days-selector-grid">
-                    ${daysOfWeek.map(d => `<div class="day-select-btn selected" data-val="${d}" onclick="toggleSelect(this)">${d}</div>`).join('')}
-                </div>
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <button class="btn btn-wifi" style="flex: 2; background-color: #2e7d32;" onclick="saveSingleSchedule(${id})">💾 Lưu Lịch Này</button>
-                <button class="btn btn-off" style="flex: 1;" onclick="removeSchedule('sch-${id}', ${id})">Xóa lịch này</button>
-            </div>
-        </div>
-    `;
-    container.insertAdjacentHTML('beforeend', scheduleHTML);
-}
+    container.innerHTML = ''; // Xóa cũ nếu có
 
+    for (let id = 1; id <= 6; id++) {
+        const scheduleHTML = `
+            <div class="schedule-card" id="schedule-card-${id}" style="border: 1px solid #ddd; border-radius: 8px; margin-bottom: 12px; background: #fff; overflow: hidden;">
+                <!-- Thanh tiêu đề thu gọn -->
+                <div class="schedule-header" onclick="toggleSchedule(${id})" style="padding: 12px 15px; background: #f5f5f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold;">
+                    <span id="summary-${id}">Lịch trình #${id}: Chưa cấu hình (06:00)</span>
+                    <span id="toggle-icon-${id}" style="font-size: 12px; color: #666;">▼ Mở rộng</span>
+                </div>
+
+                <!-- Khung cài đặt chi tiết (Ẩn mặc định) -->
+                <div class="schedule-body" id="schedule-body-${id}" style="display: none; padding: 15px; border-top: 1px solid #eee;">
+                    <h4 style="margin-top: 0; color: #2e7d32;">Cài Đặt Lịch Trình #${id}</h4>
+                    
+                    <div class="form-group">
+                        <label>Chọn van áp dụng:</label>
+                        <div class="valve-selector-grid" style="display: flex; gap: 5px; margin-top: 5px;">
+                            ${[1,2,3,4,5,6].map(v => `<div class="valve-select-btn" data-val="${v}" onclick="toggleSelect(this)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; text-align: center; flex: 1;">V${v}</div>`).join('')}
+                        </div>
+                    </div>
+
+                    <div class="form-group timer-inputs" style="margin-top: 10px;">
+                        <label>Thời gian tưới:</label><br>
+                        <input type="number" class="sch-h" value="0" min="0" style="width: 60px;"> giờ 
+                        <input type="number" class="sch-m" value="0" min="0" max="59" style="width: 60px;"> phút 
+                        <input type="number" class="sch-s" value="5" min="0" max="59" style="width: 60px;"> giây
+                    </div>
+
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label>Thời gian nghỉ giữa các lần (phút):</label><br>
+                        <input type="number" class="sch-rest" value="0" min="0" style="width: 100%; padding: 6px;">
+                    </div>
+
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label>Số lần lặp lại:</label><br>
+                        <input type="number" class="sch-repeat" value="1" min="1" style="width: 100%; padding: 6px;">
+                    </div>
+
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label>Thời gian bắt đầu trong ngày:</label><br>
+                        <input type="time" class="sch-time" value="06:00" style="width: 100%; padding: 6px;">
+                    </div>
+
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label>Tùy chọn lặp lại theo thứ:</label>
+                        <div class="days-selector-grid" style="display: flex; gap: 5px; margin-top: 5px;">
+                            ${daysOfWeek.map(d => `<div class="day-select-btn selected" data-val="${d}" onclick="toggleSelect(this)" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; text-align: center; flex: 1; font-size: 12px;">${d}</div>`).join('')}
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button class="btn btn-wifi" style="flex: 2; background-color: #2e7d32; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;" onclick="saveSingleSchedule(${id})">💾 Lưu Lịch Này</button>
+                        <button class="btn btn-off" style="flex: 1; background-color: #d32f2f; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;" onclick="resetSingleSchedule(${id})">Đặt lại</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', scheduleHTML);
+    }
+}
+function toggleSchedule(id) {
+    const body = document.getElementById(`schedule-body-${id}`);
+    const icon = document.getElementById(`toggle-icon-${id}`);
+    
+    if (body.style.display === "none") {
+        body.style.display = "block";
+        icon.innerText = "▲ Thu gọn";
+    } else {
+        body.style.display = "none";
+        icon.innerText = "▼ Mở rộng";
+    }
+}
+function updateSummary(id) {
+    const item = document.getElementById(`schedule-card-${id}`);
+    
+    // Lấy các van được chọn
+    let selectedValves = [];
+    item.querySelectorAll('.valve-selector-grid .valve-select-btn.selected').forEach(btn => {
+        selectedValves.push(btn.getAttribute('data-val'));
+    });
+    let valveStr = selectedValves.length > 0 ? selectedValves.join(', ') : 'Chưa chọn van';
+    
+    // Lấy thời gian bắt đầu
+    let timeStr = item.querySelector('.sch-time').value;
+    
+    // Cập nhật lên tiêu đề
+    document.getElementById(`summary-${id}`).innerText = `Lịch trình #${id}: [Van: ${valveStr}] lúc ${timeStr}`;
+}
 // Hàm gửi riêng 1 luồng lịch trình khi bấm nút lưu của thẻ đó
 function saveSingleSchedule(id) {
-    const item = document.getElementById(`sch-${id}`);
+    const item = document.getElementById(`schedule-card-${id}`);
     
     let selectedValves = [];
     item.querySelectorAll('.valve-selector-grid .valve-select-btn.selected').forEach(btn => {
@@ -303,7 +344,7 @@ function saveSingleSchedule(id) {
         selectedDays.push(btn.getAttribute('data-val'));
     });
 
-    // Đóng gói gói tin cấu hình cho đúng 1 luồng (ID cụ thể)
+    // Gửi lệnh xuống ESP32
     sendCommand({
         type: 'save_single_schedule',
         schedule: {
@@ -317,18 +358,34 @@ function saveSingleSchedule(id) {
         }
     });
 
-    alert(`Đã lưu và cập nhật riêng cho Lịch trình #${id}!`);
+    // Cập nhật hiển thị tóm tắt ngoài tiêu đề
+    updateSummary(id);
+
+    // Tự động thu gọn khung cài đặt lại
+    document.getElementById(`schedule-body-${id}`).style.display = "none";
+    document.getElementById(`toggle-icon-${id}`).innerText = "▼ Mở rộng";
+
+    alert(`Đã lưu thành công Lịch trình #${id}!`);
 }
 
-function removeSchedule(elementId, id) {
-    document.getElementById(elementId).remove();
-    // Gửi lệnh xuống ESP32 để xóa luồng này đi
+function resetSingleSchedule(id) {
+    const item = document.getElementById(`schedule-card-${id}`);
+    item.querySelectorAll('.valve-selector-grid .valve-select-btn').forEach(b => b.classList.remove('selected'));
+    item.querySelector('.sch-h').value = 0;
+    item.querySelector('.sch-m').value = 0;
+    item.querySelector('.sch-s').value = 5;
+    item.querySelector('.sch-rest').value = 0;
+    item.querySelector('.sch-repeat').value = 1;
+    item.querySelector('.sch-time').value = "06:00";
+    
     sendCommand({
         type: 'delete_schedule',
         id: id
     });
-}
 
+    updateSummary(id);
+    alert(`Đã xóa/đặt lại Lịch trình #${id}`);
+}
 function toggleSelect(element) {
     element.classList.toggle('selected');
 }
@@ -337,7 +394,10 @@ function removeSchedule(id) {
     document.getElementById(id).remove();
     scheduleCount--;
 }
-
+// Gọi hàm khởi tạo 6 lịch ngay khi tải trang
+window.addEventListener('DOMContentLoaded', () => {
+    initSchedules();
+});
 addSchedule();
 
 function saveAndSendSchedules() {
