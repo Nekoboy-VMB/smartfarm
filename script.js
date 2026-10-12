@@ -398,7 +398,7 @@ function removeSchedule(id) {
 window.addEventListener('DOMContentLoaded', () => {
     initSchedules();
 });
-addSchedule();
+
 
 function saveAndSendSchedules() {
     const scheduleItems = document.querySelectorAll('.schedule-item');
@@ -513,7 +513,110 @@ async function fetchCurrentWiFi() {
         wifiDisplay.innerText = "📶 Đang dùng chế độ Cloud / Chưa kết nối trực tiếp IP nội bộ";
     }
 }
+async function syncSchedulesFromESP() {
+    try {
+        // Thay đúng địa chỉ IP của ESP32 nhà bạn
+        let response = await fetch('http://192.168.1.76/get_schedules', {
+            method: 'GET',
+            mode: 'cors'
+        });
+        
+        if (!response.ok) {
+            console.log("Không thể tải lịch từ ESP32, mã lỗi:", response.status);
+            return;
+        }
+        
+        let schedules = await response.json();
+        console.log("Dữ liệu lịch tải về từ ESP32:", schedules);
+        
+        schedules.forEach(sch => {
+            updateScheduleUI(sch);
+        });
+    } catch (error) {
+        console.log("Lỗi kết nối khi tải lịch từ ESP32: ", error);
+    }
+}
 
+// Hàm điền dữ liệu lịch trình lên giao diện HTML tương ứng với ID (1 đến 6)
+function updateScheduleUI(sch) {
+    const id = sch.id; // ID của lịch trình (từ 1 đến 6)
+    
+    // 1. Lấy thẻ card chứa lịch trình
+    const card = document.getElementById(`schedule-card-${id}`);
+    if (!card) return;
+
+    // 2. Cập nhật thanh tiêu đề thu gọn (summary)
+    const summaryEl = document.getElementById(`summary-${id}`);
+    if (summaryEl) {
+        summaryEl.innerText = `Lịch trình #${id}: Đã cấu hình (${sch.start_time}) - Tưới ${sch.duration}s`;
+    }
+
+    // 3. Điền thời gian tưới (đổi tổng giây ra giờ, phút, giây)
+    const totalSeconds = sch.duration || 0;
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const hInput = card.querySelector('.sch-h');
+    const mInput = card.querySelector('.sch-m');
+    const sInput = card.querySelector('.sch-s');
+    if (hInput) hInput.value = hours;
+    if (mInput) mInput.value = minutes;
+    if (sInput) sInput.value = seconds;
+
+    // 4. Điền thời gian nghỉ và số lần lặp
+    const restInput = card.querySelector('.sch-rest');
+    if (restInput) restInput.value = sch.rest_minutes || 0;
+
+    const repeatInput = card.querySelector('.sch-repeat');
+    if (repeatInput) repeatInput.value = sch.repeats || 1;
+
+    // 5. Điền thời gian bắt đầu trong ngày
+    const timeInput = card.querySelector('.sch-time');
+    if (timeInput) timeInput.value = sch.start_time || "06:00";
+
+    // 6. Đánh dấu (active) các nút chọn van dựa trên mảng valves (ví dụ [1, 2, 3])
+    if (sch.valves && Array.isArray(sch.valves)) {
+        const valveBtns = card.querySelectorAll('.valve-select-btn');
+        valveBtns.forEach(btn => {
+            const val = parseInt(btn.getAttribute('data-val'));
+            if (sch.valves.includes(val)) {
+                btn.classList.add('selected');
+                // Thêm style trực quan cho nút được chọn (tuỳ thuộc vào CSS sẵn có của bạn)
+                btn.style.backgroundColor = '#2e7d32';
+                btn.style.color = 'white';
+                btn.style.borderColor = '#2e7d32';
+            } else {
+                btn.classList.remove('selected');
+                btn.style.backgroundColor = '';
+                btn.style.color = '';
+                btn.style.borderColor = '#ccc';
+            }
+        });
+    }
+
+    // 7. Đánh dấu các ngày trong tuần dựa trên mảng days (ví dụ ["T2", "T3"])
+    if (sch.days && Array.isArray(sch.days)) {
+        const dayBtns = card.querySelectorAll('.days-selector-grid .day-select-btn');
+        dayBtns.forEach(btn => {
+            const dayVal = btn.getAttribute('data-val');
+            if (sch.days.includes(dayVal)) {
+                btn.classList.add('selected');
+                btn.style.backgroundColor = '#2e7d32';
+                btn.style.color = 'white';
+                btn.style.borderColor = '#2e7d32';
+            } else {
+                btn.classList.remove('selected');
+                btn.style.backgroundColor = '';
+                btn.style.color = '';
+                btn.style.borderColor = '#ccc';
+            }
+        });
+    }
+}
+
+// Tự động gọi khi tải trang xong
+window.addEventListener('DOMContentLoaded', syncSchedulesFromESP);
 // Gọi hàm khi vừa mở trang web
 window.addEventListener('DOMContentLoaded', () => {
     fetchCurrentWiFi();
