@@ -20,7 +20,7 @@ let countdownIntervals = {};    // Lưu trữ bộ đếm hiển thị giao di�
 let remainingSeconds = {};      // Lưu số giây còn lại của từng van
 
 client.on('connect', () => {
-    document.getElementById('status').innerText = 'Trạng thái: Đang kết nối MQTT thành công!';
+    document.getElementById('status').innerText = 'Trạng thái: Kết nối MQTT thành công!';
     document.getElementById('status').style.color = '#2e7d32';
 });
 
@@ -77,12 +77,41 @@ async function sendCommand(payload) {
         client.publish(topic, jsonString);
         console.log("Gửi qua Server MQTT:", jsonString);
     }
+    // Sự kiện nút bấm gọi gọn gàng
+document.getElementById('btn-clear-device').addEventListener('click', () => {
+    if (!confirm("Bạn có chắc muốn xóa sạch cấu hình Wi-Fi không?")) return;
+    
+    sendCommand({
+        type: "system",
+        action: "clear_wifi"
+    });
+    
+    alert("Đã gửi lệnh xóa cấu hình xuống thiết bị!");
+});
 }
 
 // --- 3 NÚT KẾT NỐI Ở TAB 3 ---
-function connectWiFi() {
+async function connectWiFi() {
     updateModeBanner('WIFI');
-    document.getElementById('connection-detail-box').innerText = "Trạng thái: Đã chuyển sang Mạng Nội Bộ (WiFi HTTP)";
+    
+    // Địa chỉ IP mặc định của ESP32 khi phát AP riêng hoặc IP nội bộ trong mạng nhà
+    const espIP = "192.168.4.1"; // Hoặc đổi thành "192.168.1.76" nếu dùng chung WiFi nhà
+    
+    try {
+        document.getElementById('connection-detail-box').innerText = "Trạng thái: Đang kết nối tới WiFi nội bộ của ESP32...";
+        
+        // Gửi một request kiểm tra kết nối tới ESP32
+        const response = await fetch(`http://${espIP}/control?data=${encodeURIComponent(JSON.stringify({type: 'ping'}))}`);
+        
+        if (response.ok) {
+            document.getElementById('connection-detail-box').innerText = "Trạng thái: Đã kết nối Mạng Nội Bộ (WiFi HTTP) thành công! ✅";
+        } else {
+            throw new Error("Phản hồi từ ESP32 không hợp lệ");
+        }
+    } catch (error) {
+        console.error(error);
+        document.getElementById('connection-detail-box').innerText = "Trạng thái: Không thể kết nối IP nội bộ của ESP32. Hãy kiểm tra lại kết nối Wi-Fi trên điện thoại!";
+    }
 }
 
 async function connectBluetooth() {
@@ -369,3 +398,67 @@ function toggleMasterPump() {
         sendCommand({ type: 'system', master_pump: 'ON' });
     }
 }
+async function saveWifiViaBLE() {
+    const ssid = document.getElementById('wifi-ssid').value;
+    const pass = document.getElementById('wifi-pass').value;
+    
+    if (!ssid || !pass) {
+        alert("Vui lòng nhập đầy đủ tên Wi-Fi và mật khẩu!");
+        return;
+    }
+
+    // Định dạng dữ liệu gửi qua BLE dưới dạng JSON string
+    const wifiData = JSON.stringify({
+        type: "system",
+        action: "save_wifi",
+        ssid: ssid,
+        pass: pass
+    });
+
+    sendCommand({
+        type: "system",
+        action: "save_wifi",
+        ssid: ssid,
+        pass: pass
+    });
+    
+    alert("Đã gửi lệnh xóa cấu hình xuống thiết bị!");
+
+}
+// Hàm cập nhật tên Wi-Fi hiện tại (có thể gọi khi load trang hoặc chuyển tab)
+function updateCurrentWiFiInfo() {
+    const wifiDisplay = document.getElementById('current-wifi-display');
+    if (currentMode === 'WIFI') {
+        wifiDisplay.innerText = "🌐 Đang dùng mạng nội bộ (AP/Local IP)";
+    } else if (currentMode === 'BLE') {
+        wifiDisplay.innerText = "📶 Đang kết nối qua Bluetooth";
+    } else {
+        wifiDisplay.innerText = "☁️ Đang kết nối qua Server Cloud (MQTT)";
+    }
+}
+async function fetchCurrentWiFi() {
+    const wifiDisplay = document.getElementById('current-wifi-display');
+    if (!wifiDisplay) return;
+
+    try {
+        // Dùng IP nội bộ của ESP32 hoặc IP đang giao tiếp
+        const response = await fetch('http://192.168.4.1/status'); // Hoặc IP mạng nhà của ESP32
+        if (response.ok) {
+            const data = await response.json();
+            wifiDisplay.innerText = `🌐 Đang kết nối mạng: ${data.wifi_ssid} (IP: ${data.ip})`;
+        } else {
+            wifiDisplay.innerText = "⚠️ Không lấy được thông tin Wi-Fi trực tiếp từ thiết bị";
+        }
+    } catch (error) {
+        wifiDisplay.innerText = "📶 Đang dùng chế độ Cloud / Chưa kết nối trực tiếp IP nội bộ";
+    }
+}
+
+// Gọi hàm khi vừa mở trang web
+window.addEventListener('DOMContentLoaded', () => {
+    fetchCurrentWiFi();
+});
+// Gọi hàm ngay khi tải trang và mỗi khi đổi chế độ kết nối
+window.addEventListener('DOMContentLoaded', () => {
+    updateCurrentWiFiInfo();
+});
