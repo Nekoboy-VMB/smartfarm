@@ -84,13 +84,15 @@ function connectWiFi() {
 async function connectBluetooth() {
     try {
         const device = await navigator.bluetooth.requestDevice({
-            filters: [{ name: 'ESP32_SmartFarm' }],
+            filters: [{ name: 'Thong_Farm_ESP32' }], // Khớp đúng tên phát sóng của ESP32
             optionalServices: ['4fafc201-1fb5-459e-8fcc-c5c9c331914b']
         });
         
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService('4fafc201-1fb5-459e-8fcc-c5c9c331914b');
-        bleCharacteristic = await service.getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26aae');
+        
+        // Sửa lại đúng đuôi ...26a9 cho khớp với code C++ trên ESP32
+        bleCharacteristic = await service.getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26a9');
         
         updateModeBanner('BLE');
         document.getElementById('connection-detail-box').innerText = "Trạng thái: Đã kết nối Bluetooth thành công!";
